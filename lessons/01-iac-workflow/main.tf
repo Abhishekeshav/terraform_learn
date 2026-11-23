@@ -35,7 +35,7 @@ resource "local_file" "pipeline_config" {
   filename = "${path.module}/output/pipeline_config.json"
   content = jsonencode({
     pipeline    = "sales_ingestion"
-    environment = "dev"
+    environment = "qa"
     raw_bucket  = "de-raw-${random_id.suffix.hex}"
   })
 }
