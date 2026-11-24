@@ -1,0 +1,7 @@
+{
+  "columns" : [
+     { "name": "order_id" , "type": "string"},
+     { "name": "order_date", "type": "date"},
+     { "name": "amount" , "type": "decimal(10,2)"}
+   ]
+}
