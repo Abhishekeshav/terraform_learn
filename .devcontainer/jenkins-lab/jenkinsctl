@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Stand-in for "sudo systemctl start|stop|restart|status jenkins".
+# Codespaces has no systemd, so this starts the Jenkins installed by apt directly.
+set -euo pipefail
+WAR=/usr/share/java/jenkins.war
+JHOME=/var/lib/jenkins
+LOG="$JHOME/jenkins.log"
+PORT=8080
+
+running() { pgrep -u jenkins -f "jenkins.war" >/dev/null 2>&1; }
+
+need_install() {
+  if [[ ! -f "$WAR" ]] || ! id jenkins >/dev/null 2>&1; then
+    echo "Jenkins is not installed yet. Follow the video's install steps first (apt install jenkins)."
+    exit 1
+  fi
+  if ! command -v java >/dev/null 2>&1; then
+    echo "Java is not installed. Run: sudo apt install -y fontconfig openjdk-21-jre"
+    exit 1
+  fi
+}
+
+start() {
+  need_install
+  if running; then echo "Jenkins is already running on port $PORT."; return 0; fi
+  sudo -u jenkins bash -c "cd '$JHOME' && JENKINS_HOME='$JHOME' nohup java -jar '$WAR' --httpPort=$PORT >> '$LOG' 2>&1 &"
+  echo -n "Starting Jenkins"
+  for _ in $(seq 1 90); do
+    if curl -sf -o /dev/null "http://localhost:$PORT/login"; then
+      echo " ready. Open the PORTS tab, port $PORT, globe icon."
+      return 0
+    fi
+    echo -n "."
+    sleep 2
+  done
+  echo ""
+  echo "Not ready after 3 minutes. Check the log with: jenkinsctl logs"
+  return 1
+}
+
+stop() {
+  if ! running; then echo "Jenkins is not running."; return 0; fi
+  sudo pkill -u jenkins -f "jenkins.war" || true
+  for _ in $(seq 1 30); do running || { echo "Jenkins stopped."; return 0; }; sleep 1; done
+  echo "Still running; forcing stop."
+  sudo pkill -9 -u jenkins -f "jenkins.war" || true
+}
+
+case "${1:-}" in
+  start)    start ;;
+  stop)     stop ;;
+  restart)  stop; start ;;
+  status)
+    if running; then echo "jenkins: active (running) on port $PORT"; else echo "jenkins: inactive (stopped)"; fi ;;
+  logs)     sudo tail -n 50 -f "$LOG" ;;
+  password) sudo cat "$JHOME/secrets/initialAdminPassword" ;;
+  *)
+    echo "Usage: jenkinsctl start|stop|restart|status|logs|password"
+    echo "  (use this wherever the video runs 'sudo systemctl ... jenkins')"
+    exit 1 ;;
+esac

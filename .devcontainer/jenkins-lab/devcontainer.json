@@ -1,0 +1,21 @@
+{
+  "name": "Jenkins Lab (follow-along VM)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "hostRequirements": {
+    "cpus": 2
+  },
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": { "label": "Jenkins", "onAutoForward": "notify" },
+    "2222": { "label": "agent-vm SSH", "onAutoForward": "silent" }
+  },
+  "postCreateCommand": "bash .devcontainer/jenkins-lab/setup.sh",
+  "customizations": {
+    "codespaces": {
+      "openFiles": [".devcontainer/jenkins-lab/README.md"]
+    }
+  }
+}

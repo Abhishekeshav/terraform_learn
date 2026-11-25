@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# A second "machine" for the video's Jenkins agents chapter:
+# an Ubuntu container you reach over SSH, like a second EC2 instance.
+set -euo pipefail
+NAME=agent-vm
+IMAGE=agent-vm:latest
+PORT=2222
+KEY="$HOME/agent-vm-key"
+SHARE=/usr/local/share/jenkins-lab
+
+info() {
+  cat <<INFO
+
+agent-vm is running. Use these values in Jenkins (Manage Jenkins > Nodes > New Node):
+  Launch method ............ Launch agents via SSH
+  Host ..................... localhost
+  Port (under Advanced) .... $PORT
+  Credentials .............. SSH Username with private key
+      Username ............. ubuntu
+      Private key .......... paste the output of:  cat $KEY
+  Host Key Verification .... Non verifying Verification Strategy (practice only)
+  Remote root directory .... /home/ubuntu/jenkins-agent
+
+Log in to the agent like the video's "ssh into the second instance":  agent-vm ssh
+INFO
+}
+
+case "${1:-}" in
+  start)
+    [[ -f "$KEY" ]] || ssh-keygen -t ed25519 -N "" -f "$KEY" -C agent-vm >/dev/null
+    if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+      echo "Building the agent-vm image (first time only, about a minute)..."
+      docker build -q -t "$IMAGE" -f "$SHARE/agent-vm.Dockerfile" "$SHARE" >/dev/null
+    fi
+    if docker ps --format '{{.Names}}' | grep -qx "$NAME"; then
+      echo "agent-vm is already running."
+    elif docker ps -a --format '{{.Names}}' | grep -qx "$NAME"; then
+      docker start "$NAME" >/dev/null
+    else
+      docker run -d --name "$NAME" -p "$PORT:22" -e AUTHORIZED_KEY="$(cat "$KEY.pub")" "$IMAGE" >/dev/null
+    fi
+    info ;;
+  ssh)
+    ssh -i "$KEY" -p "$PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@localhost ;;
+  stop)   docker stop "$NAME" >/dev/null && echo "agent-vm stopped (start it again with: agent-vm start)." ;;
+  reset)  docker rm -f "$NAME" >/dev/null && echo "agent-vm deleted; 'agent-vm start' makes a fresh one." ;;
+  info)   info ;;
+  *)
+    echo "Usage: agent-vm start|ssh|stop|reset|info"
+    exit 1 ;;
+esac
