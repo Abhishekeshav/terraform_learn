@@ -23,7 +23,7 @@ need_install() {
 start() {
   need_install
   if running; then echo "Jenkins is already running on port $PORT."; return 0; fi
-  sudo -u jenkins bash -c "cd '$JHOME' && JENKINS_HOME='$JHOME' nohup java -jar '$WAR' --httpPort=$PORT >> '$LOG' 2>&1 &"
+  sudo runuser -u jenkins -- bash -c "cd '$JHOME' && JENKINS_HOME='$JHOME' nohup java -jar '$WAR' --httpPort=$PORT >> '$LOG' 2>&1 &"
   echo -n "Starting Jenkins"
   for _ in $(seq 1 90); do
     if curl -sf -o /dev/null "http://localhost:$PORT/login"; then
